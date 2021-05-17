@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -121,6 +122,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", logger(func(w http.ResponseWriter, r *http.Request) {
+
 		if strings.Contains(r.URL.Path, ".htpasswd") {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
@@ -133,20 +135,41 @@ func main() {
 			return
 		}
 
+		//wdav.Prefix = user
+
 		fp := path.Join(davDir, r.URL.Path)
-		err := createEmpty(fp)
+		/*
+			fp := path.Join(davDir, user, r.URL.Path)
+			_, dErr := os.Stat(user)
+			if os.IsNotExist(dErr) {
+				mErr := os.Mkdir(path.Join(davDir, user), 0700)
+				if mErr != nil {
+					http.Error(w, mErr.Error(), http.StatusInternalServerError)
+					return
+				}
+			}
+		*/
+
+		isHTML, err := regexp.Match(`\.html$`, []byte(r.URL.Path))
 		if err != nil {
-			log.Println(err)
-			fmt.Fprintf(w, err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		if r.URL.Path == "/" {
+		if isHTML {
+			// HTML files will be created or sent back
+			err := createEmpty(fp)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			wdav.ServeHTTP(w, r)
+		} else {
+			// Everything else is browsable
 			idxHandler.ServeHTTP(w, r)
 			return
 		}
-
-		wdav.ServeHTTP(w, r)
 	}))
 
 	s := http.Server{

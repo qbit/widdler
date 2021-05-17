@@ -15,6 +15,12 @@ go get -u suah.dev/widdler
 # Running
 
 ```
+mkdir wiki
+cd wiki
+# OpenBSD:
+htpasswd .htpasswd youruser
+# or on Linux/macOS
+# htpasswd -c -B youruser
 widdler 
 ```
 
@@ -26,3 +32,6 @@ create the wiki file based off the current `empty.html` TiddlyWiki version.
 # Saving changes
 
 Simply hit the save button!
+
+# TODO
+- [ ] Multi-user support
