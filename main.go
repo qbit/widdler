@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -25,8 +26,6 @@ var twFile = "empty-5.1.23.html"
 var tiddly embed.FS
 
 var (
-	test     bool
-	cacheDir string
 	davDir   string
 	listen   string
 	passPath string
@@ -40,17 +39,14 @@ func init() {
 		log.Fatalln(err)
 	}
 
-	flag.StringVar(&cacheDir, "cache", fmt.Sprintf("%s/.cache", dir), "Directory in which to store ACME certificates.")
 	flag.StringVar(&davDir, "davdir", dir, "Directory to serve over WebDAV.")
 	flag.StringVar(&listen, "http", "127.0.0.1:8080", "Listen on")
 	flag.StringVar(&passPath, "htpass", fmt.Sprintf("%s/.htpasswd", dir), "Path to .htpasswd file..")
-	flag.BoolVar(&test, "test", false, "Enable testing mode (uses staging LetsEncrypt).")
 	flag.Parse()
 
 	// These are OpenBSD specific protections used to prevent unnecessary file access.
 	_ = protect.Unveil(passPath, "r")
 	_ = protect.Unveil(davDir, "rwc")
-	_ = protect.Unveil(cacheDir, "rwc")
 	_ = protect.Unveil("/etc/ssl/cert.pem", "r")
 	_ = protect.Unveil("/etc/resolv.conf", "r")
 	_ = protect.Pledge("stdio wpath rpath cpath inet dns")
@@ -125,6 +121,11 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", logger(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, ".htpasswd") {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
 		user, pass, ok := r.BasicAuth()
 		if !(ok && authenticate(user, pass)) {
 			w.Header().Set("WWW-Authenticate", `Basic realm="davfs"`)
