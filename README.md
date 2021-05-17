@@ -24,6 +24,8 @@ htpasswd .htpasswd youruser
 widdler 
 ```
 
+Now open your browser to [http://localhost:8080](http://localhost:8080)
+
 # Creating a new TiddlyWiki
 
 Simply browse to the file name you wish to create. widdler will automatically
