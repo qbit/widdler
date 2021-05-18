@@ -29,6 +29,7 @@ var tiddly embed.FS
 var (
 	davDir   string
 	listen   string
+	auth     bool
 	passPath string
 	users    map[string]string
 )
@@ -40,9 +41,10 @@ func init() {
 		log.Fatalln(err)
 	}
 
-	flag.StringVar(&davDir, "davdir", dir, "Directory to serve over WebDAV.")
+	flag.StringVar(&davDir, "wikis", dir, "Directory of TiddlyWikis to serve over WebDAV.")
 	flag.StringVar(&listen, "http", "127.0.0.1:8080", "Listen on")
 	flag.StringVar(&passPath, "htpass", fmt.Sprintf("%s/.htpasswd", dir), "Path to .htpasswd file..")
+	flag.BoolVar(&auth, "auth", true, "Enable HTTP Basic Authentication.")
 	flag.Parse()
 
 	// These are OpenBSD specific protections used to prevent unnecessary file access.
@@ -52,24 +54,32 @@ func init() {
 	_ = protect.Unveil("/etc/resolv.conf", "r")
 	_ = protect.Pledge("stdio wpath rpath cpath inet dns")
 
-	p, err := os.Open(passPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer p.Close()
+	_, fErr := os.Stat(passPath)
+	if os.IsNotExist(fErr) {
+		if auth {
+			fmt.Println("No .htpasswd file found!")
+			os.Exit(1)
+		}
+	} else {
+		p, err := os.Open(passPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer p.Close()
 
-	ht := csv.NewReader(p)
-	ht.Comma = ':'
-	ht.Comment = '#'
-	ht.TrimLeadingSpace = true
+		ht := csv.NewReader(p)
+		ht.Comma = ':'
+		ht.Comment = '#'
+		ht.TrimLeadingSpace = true
 
-	entries, err := ht.ReadAll()
-	if err != nil {
-		log.Fatal(err)
-	}
+		entries, err := ht.ReadAll()
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	for _, parts := range entries {
-		users[parts[0]] = parts[1]
+		for _, parts := range entries {
+			users[parts[0]] = parts[1]
+		}
 	}
 }
 
@@ -128,11 +138,13 @@ func main() {
 			return
 		}
 
-		user, pass, ok := r.BasicAuth()
-		if !(ok && authenticate(user, pass)) {
-			w.Header().Set("WWW-Authenticate", `Basic realm="davfs"`)
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
+		if auth {
+			user, pass, ok := r.BasicAuth()
+			if !(ok && authenticate(user, pass)) {
+				w.Header().Set("WWW-Authenticate", `Basic realm="davfs"`)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
 		}
 
 		//wdav.Prefix = user
