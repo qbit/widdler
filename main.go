@@ -193,6 +193,6 @@ func main() {
 		log.Panic(err)
 	}
 
-	log.Printf("Listening for HTTP on '%s'", listen)
+	log.Printf("Listening for HTTP on 'http://%s'", listen)
 	log.Panic(s.Serve(lis))
 }
