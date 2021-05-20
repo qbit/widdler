@@ -252,6 +252,10 @@ func main() {
 					l.User = user
 				}
 				err = templ.ExecuteTemplate(w, "landing", l)
+				if err != nil {
+					log.Println(err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+				}
 			}
 		}
 	}))
