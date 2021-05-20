@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"text/template"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -21,10 +22,33 @@ import (
 	"suah.dev/protect"
 )
 
-var twFile = "empty-5.1.23.html"
+// Landing will be used to fill our landing template
+type Landing struct {
+	User string
+	URL  string
+}
 
-//go:embed empty-5.1.23.html
-var tiddly embed.FS
+const landingPage = `
+<h1>Hello{{if .User}} {{.User}}{{end}}! Welcome to widdler!</h1>
+
+<p>To create a new TiddlyWiki html file, simply append an html file name to the URL in the address bar!</p>
+
+<h3>For example:</h3>
+
+<a href="{{.URL}}">{{.URL}}</a>
+
+<p>This will create a new wiki called "<b>wiki.html</b>"</p>
+
+<p>After creating a wiki, this message will be replaced by a list of your wiki files.</p>
+`
+
+var (
+	twFile = "empty-5.1.23.html"
+
+	//go:embed empty-5.1.23.html
+	tiddly embed.FS
+	templ  *template.Template
+)
 
 type userHandlers struct {
 	dav *webdav.Handler
@@ -49,7 +73,7 @@ func init() {
 	}
 
 	flag.StringVar(&davDir, "wikis", dir, "Directory of TiddlyWikis to serve over WebDAV.")
-	flag.StringVar(&listen, "http", "127.0.0.1:8080", "Listen on")
+	flag.StringVar(&listen, "http", "localhost:8080", "Listen on")
 	flag.StringVar(&passPath, "htpass", fmt.Sprintf("%s/.htpasswd", dir), "Path to .htpasswd file..")
 	flag.BoolVar(&auth, "auth", true, "Enable HTTP Basic Authentication.")
 	flag.Parse()
@@ -60,6 +84,11 @@ func init() {
 	_ = protect.Unveil("/etc/ssl/cert.pem", "r")
 	_ = protect.Unveil("/etc/resolv.conf", "r")
 	_ = protect.Pledge("stdio wpath rpath cpath inet dns")
+
+	templ, err = template.New("landing").Parse(landingPage)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	_, fErr := os.Stat(passPath)
 	if os.IsNotExist(fErr) {
@@ -177,12 +206,12 @@ func main() {
 		}
 
 		handler := handlers[user]
-		up := path.Join(davDir, user)
-		fp := path.Join(davDir, user, r.URL.Path)
+		userPath := path.Join(davDir, user)
+		fullPath := path.Join(davDir, user, r.URL.Path)
 
-		_, dErr := os.Stat(up)
+		_, dErr := os.Stat(userPath)
 		if os.IsNotExist(dErr) {
-			mErr := os.Mkdir(up, 0700)
+			mErr := os.Mkdir(userPath, 0700)
 			if mErr != nil {
 				http.Error(w, mErr.Error(), http.StatusInternalServerError)
 				return
@@ -197,7 +226,7 @@ func main() {
 
 		if isHTML {
 			// HTML files will be created or sent back
-			err := createEmpty(fp)
+			err := createEmpty(fullPath)
 			if err != nil {
 				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -206,8 +235,24 @@ func main() {
 			handler.dav.ServeHTTP(w, r)
 		} else {
 			// Everything else is browsable
-			handler.fs.ServeHTTP(w, r)
-			return
+			entries, err := os.ReadDir(userPath)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			if len(entries) > 0 {
+				handler.fs.ServeHTTP(w, r)
+			} else {
+				l := Landing{
+					URL: fmt.Sprintf("http://%s/wiki.html", listen),
+				}
+				if user != "" {
+					l.User = user
+				}
+				err = templ.ExecuteTemplate(w, "landing", l)
+			}
 		}
 	}))
 
