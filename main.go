@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"embed"
 	"encoding/csv"
 	"flag"
@@ -56,12 +57,15 @@ type userHandlers struct {
 }
 
 var (
-	davDir   string
-	listen   string
-	auth     bool
-	passPath string
-	users    map[string]string
-	handlers map[string]userHandlers
+	auth       bool
+	davDir     string
+	fullListen string
+	handlers   map[string]userHandlers
+	listen     string
+	passPath   string
+	tlsCert    string
+	tlsKey     string
+	users      map[string]string
 )
 
 func init() {
@@ -74,6 +78,8 @@ func init() {
 
 	flag.StringVar(&davDir, "wikis", dir, "Directory of TiddlyWikis to serve over WebDAV.")
 	flag.StringVar(&listen, "http", "localhost:8080", "Listen on")
+	flag.StringVar(&tlsCert, "tlscert", "", "TLS certificate.")
+	flag.StringVar(&tlsKey, "tlskey", "", "TLS key.")
 	flag.StringVar(&passPath, "htpass", fmt.Sprintf("%s/.htpasswd", dir), "Path to .htpasswd file..")
 	flag.BoolVar(&auth, "auth", true, "Enable HTTP Basic Authentication.")
 	flag.Parse()
@@ -246,7 +252,7 @@ func main() {
 				handler.fs.ServeHTTP(w, r)
 			} else {
 				l := Landing{
-					URL: fmt.Sprintf("http://%s/wiki.html", listen),
+					URL: fmt.Sprintf("%s/wiki.html", fullListen),
 				}
 				if user != "" {
 					l.User = user
@@ -266,9 +272,25 @@ func main() {
 
 	lis, err := net.Listen("tcp", listen)
 	if err != nil {
-		log.Panic(err)
+		log.Fatalln(err)
 	}
 
-	log.Printf("Listening for HTTP on 'http://%s'", listen)
-	log.Panic(s.Serve(lis))
+	if tlsCert != "" && tlsKey != "" {
+		fullListen = fmt.Sprintf("https://%s", listen)
+
+		s.TLSConfig = &tls.Config{
+			MinVersion:               tls.VersionTLS12,
+			CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+			PreferServerCipherSuites: true,
+		}
+
+		log.Printf("Listening for HTTPS on 'https://%s'", listen)
+		log.Fatalln(s.ServeTLS(lis, tlsCert, tlsKey))
+	} else {
+		fullListen = fmt.Sprintf("http://%s", listen)
+
+		log.Printf("Listening for HTTP on 'http://%s'", listen)
+		log.Fatalln(s.Serve(lis))
+	}
+
 }
