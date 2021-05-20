@@ -26,11 +26,11 @@ go get -u suah.dev/widdler
 ```
 mkdir wiki
 cd wiki
-# OpenBSD:
-htpasswd .htpasswd youruser
-# or on Linux/macOS
-# htpasswd -c -B youruser
-widdler 
+# Generate a .htpasswd file:
+widdler -gen
+Username: qbit
+Passwd: ******
+./widdler
 ```
 
 Now open your browser to [http://localhost:8080](http://localhost:8080).

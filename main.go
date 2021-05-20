@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/webdav"
 	"suah.dev/protect"
 )
@@ -60,6 +61,7 @@ var (
 	auth       bool
 	davDir     string
 	fullListen string
+	genHtpass  bool
 	handlers   map[string]userHandlers
 	listen     string
 	passPath   string
@@ -82,6 +84,7 @@ func init() {
 	flag.StringVar(&tlsKey, "tlskey", "", "TLS key.")
 	flag.StringVar(&passPath, "htpass", fmt.Sprintf("%s/.htpasswd", dir), "Path to .htpasswd file..")
 	flag.BoolVar(&auth, "auth", true, "Enable HTTP Basic Authentication.")
+	flag.BoolVar(&genHtpass, "gen", false, "Generate a .htpasswd file or add a new entry to an existing file.")
 	flag.Parse()
 
 	// These are OpenBSD specific protections used to prevent unnecessary file access.
@@ -96,33 +99,6 @@ func init() {
 		log.Fatalln(err)
 	}
 
-	_, fErr := os.Stat(passPath)
-	if os.IsNotExist(fErr) {
-		if auth {
-			fmt.Println("No .htpasswd file found!")
-			os.Exit(1)
-		}
-	} else {
-		p, err := os.Open(passPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer p.Close()
-
-		ht := csv.NewReader(p)
-		ht.Comma = ':'
-		ht.Comment = '#'
-		ht.TrimLeadingSpace = true
-
-		entries, err := ht.ReadAll()
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for _, parts := range entries {
-			users[parts[0]] = parts[1]
-		}
-	}
 }
 
 func authenticate(user string, pass string) bool {
@@ -164,7 +140,83 @@ func createEmpty(path string) error {
 	return nil
 }
 
+func prompt(prompt string, secure bool) (string, error) {
+	var input string
+	fmt.Print(prompt)
+
+	if secure {
+		b, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		if err != nil {
+			return "", err
+		}
+		input = string(b)
+	} else {
+		fmt.Scanln(&input)
+	}
+	return input, nil
+}
+
 func main() {
+	if genHtpass {
+		user, err := prompt("Username: ", false)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		pass, err := prompt("Password: ", true)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		hash, err := bcrypt.GenerateFromPassword([]byte(pass), 11)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		f, err := os.OpenFile(passPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		defer f.Close()
+
+		if _, err := f.WriteString(fmt.Sprintf("%s:%s\n", user, hash)); err != nil {
+			log.Fatalln(err)
+		}
+
+		fmt.Printf("Added %q to %q\n", user, passPath)
+
+		os.Exit(0)
+	}
+
+	_, fErr := os.Stat(passPath)
+	if os.IsNotExist(fErr) {
+		if auth {
+			fmt.Println("No .htpasswd file found!")
+			os.Exit(1)
+		}
+	} else {
+		p, err := os.Open(passPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer p.Close()
+
+		ht := csv.NewReader(p)
+		ht.Comma = ':'
+		ht.Comment = '#'
+		ht.TrimLeadingSpace = true
+
+		entries, err := ht.ReadAll()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, parts := range entries {
+			users[parts[0]] = parts[1]
+		}
+	}
+
 	if auth {
 		for u := range users {
 			uPath := path.Join(davDir, u)
