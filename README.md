@@ -6,8 +6,13 @@ widdler is a single binary that serves up
 
 It can be used to server existing wikis, or to create new ones.
 
-widdler also supports multiple users. Each user defined it the `.htaccess` file
-creates a user-specific directory to store said users wikis!
+# Features
+
+- TiddlyWikis are served over WebDav so you can save directly from the browser.
+- Automatically create new wiki files by browsing to a non-existent html file.
+- Multiple users (adding another user to the .htaccess file creates a new user
+  namespace).
+- Optional TLS support.
 
 # Installation
 
