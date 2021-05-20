@@ -26,16 +26,23 @@ var twFile = "empty-5.1.23.html"
 //go:embed empty-5.1.23.html
 var tiddly embed.FS
 
+type userHandlers struct {
+	dav *webdav.Handler
+	fs  http.Handler
+}
+
 var (
 	davDir   string
 	listen   string
 	auth     bool
 	passPath string
 	users    map[string]string
+	handlers map[string]userHandlers
 )
 
 func init() {
 	users = make(map[string]string)
+	handlers = make(map[string]userHandlers)
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		log.Fatalln(err)
@@ -123,44 +130,64 @@ func createEmpty(path string) error {
 }
 
 func main() {
-	wdav := &webdav.Handler{
-		LockSystem: webdav.NewMemLS(),
-		FileSystem: webdav.Dir(davDir),
+	if auth {
+		for u := range users {
+			uPath := path.Join(davDir, u)
+			handlers[u] = userHandlers{
+				dav: &webdav.Handler{
+					LockSystem: webdav.NewMemLS(),
+					FileSystem: webdav.Dir(uPath),
+				},
+				fs: http.FileServer(http.Dir(uPath)),
+			}
+		}
+	} else {
+		handlers[""] = userHandlers{
+			dav: &webdav.Handler{
+				LockSystem: webdav.NewMemLS(),
+				FileSystem: webdav.Dir(davDir),
+			},
+			fs: http.FileServer(http.Dir(davDir)),
+		}
 	}
-
-	idxHandler := http.FileServer(http.Dir(davDir))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", logger(func(w http.ResponseWriter, r *http.Request) {
+		user, pass := "", ""
+		var ok bool
 
 		if strings.Contains(r.URL.Path, ".htpasswd") {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			http.NotFound(w, r)
+			return
+		}
+
+		// Prevent directory traversal
+		if strings.Contains(r.URL.Path, "..") {
+			http.NotFound(w, r)
 			return
 		}
 
 		if auth {
-			user, pass, ok := r.BasicAuth()
+			user, pass, ok = r.BasicAuth()
 			if !(ok && authenticate(user, pass)) {
-				w.Header().Set("WWW-Authenticate", `Basic realm="davfs"`)
+				w.Header().Set("WWW-Authenticate", `Basic realm="widdler"`)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
 		}
 
-		//wdav.Prefix = user
+		handler := handlers[user]
+		up := path.Join(davDir, user)
+		fp := path.Join(davDir, user, r.URL.Path)
 
-		fp := path.Join(davDir, r.URL.Path)
-		/*
-			fp := path.Join(davDir, user, r.URL.Path)
-			_, dErr := os.Stat(user)
-			if os.IsNotExist(dErr) {
-				mErr := os.Mkdir(path.Join(davDir, user), 0700)
-				if mErr != nil {
-					http.Error(w, mErr.Error(), http.StatusInternalServerError)
-					return
-				}
+		_, dErr := os.Stat(up)
+		if os.IsNotExist(dErr) {
+			mErr := os.Mkdir(up, 0700)
+			if mErr != nil {
+				http.Error(w, mErr.Error(), http.StatusInternalServerError)
+				return
 			}
-		*/
+		}
 
 		isHTML, err := regexp.Match(`\.html$`, []byte(r.URL.Path))
 		if err != nil {
@@ -176,10 +203,10 @@ func main() {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			wdav.ServeHTTP(w, r)
+			handler.dav.ServeHTTP(w, r)
 		} else {
 			// Everything else is browsable
-			idxHandler.ServeHTTP(w, r)
+			handler.fs.ServeHTTP(w, r)
 			return
 		}
 	}))
