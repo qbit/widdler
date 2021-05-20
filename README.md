@@ -31,6 +31,7 @@ cd wiki
 widdler -gen
 Username: qbit
 Passwd: ******
+# Start the server
 ./widdler
 ```
 
