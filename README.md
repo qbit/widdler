@@ -10,6 +10,7 @@ It can be used to server existing wikis, or to create new ones.
 
 - TiddlyWikis are served over WebDav so you can save directly from the browser.
 - Automatically create new wiki files by browsing to a non-existent html file.
+- Built in .htpasswd management (Adding users).
 - Password protection via HTTP Basic Authentication.
 - Multiple users (adding another user to the .htaccess file creates a new user
   namespace).
