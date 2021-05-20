@@ -6,6 +6,9 @@ widdler is a single binary that serves up
 
 It can be used to server existing wikis, or to create new ones.
 
+widdler also supports multiple users. Each user defined it the `.htaccess` file
+creates a user-specific directory to store said users wikis!
+
 # Installation
 
 ```
@@ -24,7 +27,7 @@ htpasswd .htpasswd youruser
 widdler 
 ```
 
-Now open your browser to [http://localhost:8080](http://localhost:8080)
+Now open your browser to [http://localhost:8080](http://localhost:8080).
 
 # Creating a new TiddlyWiki
 
@@ -35,5 +38,3 @@ create the wiki file based off the current `empty.html` TiddlyWiki version.
 
 Simply hit the save button!
 
-# TODO
-- [ ] Multi-user support
