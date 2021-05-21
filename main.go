@@ -88,7 +88,7 @@ func init() {
 	flag.Parse()
 
 	// These are OpenBSD specific protections used to prevent unnecessary file access.
-	_ = protect.Unveil(passPath, "r")
+	_ = protect.Unveil(passPath, "rwc")
 	_ = protect.Unveil(davDir, "rwc")
 	_ = protect.Unveil("/etc/ssl/cert.pem", "r")
 	_ = protect.Unveil("/etc/resolv.conf", "r")
@@ -157,6 +157,8 @@ func prompt(prompt string, secure bool) (string, error) {
 }
 
 func main() {
+	_ = protect.Pledge("stdio wpath rpath cpath inet dns unveil")
+
 	if genHtpass {
 		user, err := prompt("Username: ", false)
 		if err != nil {
@@ -188,6 +190,10 @@ func main() {
 
 		os.Exit(0)
 	}
+
+	// drop to only read on passPath
+	_ = protect.Unveil(passPath, "r")
+	_ = protect.Pledge("stdio wpath rpath cpath inet dns")
 
 	_, fErr := os.Stat(passPath)
 	if os.IsNotExist(fErr) {
