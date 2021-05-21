@@ -92,7 +92,7 @@ func init() {
 	_ = protect.Unveil(davDir, "rwc")
 	_ = protect.Unveil("/etc/ssl/cert.pem", "r")
 	_ = protect.Unveil("/etc/resolv.conf", "r")
-	_ = protect.Pledge("stdio wpath rpath cpath inet dns")
+	_ = protect.Pledge("stdio wpath rpath cpath tty inet dns unveil")
 
 	templ, err = template.New("landing").Parse(landingPage)
 	if err != nil {
