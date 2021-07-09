@@ -70,6 +70,8 @@ var (
 	users      map[string]string
 )
 
+var pledges = "stdio wpath rpath cpath tty inet dns unveil"
+
 func init() {
 	users = make(map[string]string)
 	handlers = make(map[string]userHandlers)
@@ -92,7 +94,7 @@ func init() {
 	_ = protect.Unveil(davDir, "rwc")
 	_ = protect.Unveil("/etc/ssl/cert.pem", "r")
 	_ = protect.Unveil("/etc/resolv.conf", "r")
-	_ = protect.Pledge("stdio wpath rpath cpath tty inet dns unveil")
+	_ = protect.Pledge(pledges)
 
 	templ, err = template.New("landing").Parse(landingPage)
 	if err != nil {
@@ -157,7 +159,7 @@ func prompt(prompt string, secure bool) (string, error) {
 }
 
 func main() {
-	_ = protect.Pledge("stdio wpath rpath cpath inet dns unveil")
+	var pledges = "stdio wpath rpath cpath tty inet dns unveil"
 
 	if genHtpass {
 		user, err := prompt("Username: ", false)
@@ -190,10 +192,11 @@ func main() {
 
 		os.Exit(0)
 	}
+	pledges, _ = protect.ReducePledges(pledges, "tty")
 
 	// drop to only read on passPath
 	_ = protect.Unveil(passPath, "r")
-	_ = protect.Pledge("stdio wpath rpath cpath inet dns")
+	pledges, _ = protect.ReducePledges(pledges, "unveil")
 
 	_, fErr := os.Stat(passPath)
 	if os.IsNotExist(fErr) {
