@@ -18,8 +18,14 @@ It can be used to server existing wikis, or to create new ones.
 
 # Installation
 
+For Go 1.16:
 ```
 go get -u suah.dev/widdler
+```
+
+For Go 1.17 and up:
+```
+go install suah.dev/widdler@latest
 ```
 
 # Running
@@ -46,3 +52,16 @@ create the wiki file based off the current `empty.html` TiddlyWiki version.
 
 Simply hit the save button!
 
+# Updating widdler
+
+```
+go install suah.dev/widdler@latest
+```
+
+# Running without .htpasswd
+
+You can disable auth all together by setting the `-auth` flag to false:
+
+```
+widdler -auth=false -wikis ~/wiki
+```
