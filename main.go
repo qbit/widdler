@@ -276,9 +276,10 @@ func main() {
 					user = strings.TrimLeft(name, prefix)
 					pass = values[0]
 					ok = true
+					break
 				}
 			}
-			
+
 			if !(ok && authenticate(user, pass)) {
 				w.Header().Set("WWW-Authenticate", `Basic realm="widdler"`)
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
