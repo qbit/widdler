@@ -63,9 +63,9 @@ type userHandler struct {
 type userHandlers []userHandler
 
 func (u userHandlers) find(name string) *userHandler {
-	for _, usr := range u {
-		if usr.name == name {
-			return &usr
+	for i := range u {
+		if u[i].name == name {
+			return &u[i]
 		}
 	}
 	return nil
