@@ -4,7 +4,7 @@ widdler
 widdler is a single binary that serves up
 [TiddlyWiki](https://tiddlywiki.com)s.
 
-It can be used to server existing wikis, or to create new ones.
+It can be used to serve existing wikis, or to create new ones.
 
 # Features
 
