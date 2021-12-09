@@ -175,7 +175,6 @@ func prompt(prompt string, secure bool) (string, error) {
 }
 
 func main() {
-	var pledges = "stdio wpath rpath cpath tty inet dns unveil"
 
 	if genHtpass {
 		user, err := prompt("Username: ", false)
