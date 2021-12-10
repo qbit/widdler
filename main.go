@@ -60,12 +60,15 @@ type userHandler struct {
 	name string
 }
 
-type userHandlers []userHandler
+type userHandlers struct {
+	list []userHandler
+	mu   sync.RWMutex
+}
 
-func (u userHandlers) find(name string) *userHandler {
-	for i := range u {
-		if u[i].name == name {
-			return &u[i]
+func (u *userHandlers) find(name string) *userHandler {
+	for i := range u.list {
+		if u.list[i].name == name {
+			return &u.list[i]
 		}
 	}
 	return nil
@@ -233,12 +236,12 @@ func main() {
 		ht.Comment = '#'
 		ht.TrimLeadingSpace = true
 
-		err = p.Close()
+		entries, err := ht.ReadAll()
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		entries, err := ht.ReadAll()
+		err = p.Close()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -251,7 +254,7 @@ func main() {
 	if auth {
 		for u := range users {
 			uPath := path.Join(davDir, u)
-			handlers = append(handlers, userHandler{
+			handlers.list = append(handlers.list, userHandler{
 				name: u,
 				dav: &webdav.Handler{
 					LockSystem: webdav.NewMemLS(),
@@ -261,7 +264,7 @@ func main() {
 			})
 		}
 	} else {
-		handlers = append(handlers, userHandler{
+		handlers.list = append(handlers.list, userHandler{
 			name: "",
 			dav: &webdav.Handler{
 				LockSystem: webdav.NewMemLS(),
@@ -296,7 +299,10 @@ func main() {
 			}
 		}
 
+		handlers.mu.RLock()
 		handler := handlers.find(user)
+		handlers.mu.RUnlock()
+
 		if handler == nil {
 			http.NotFound(w, r)
 			return
