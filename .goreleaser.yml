@@ -1,0 +1,55 @@
+before:
+  hooks:
+    - go mod tidy
+    - go vet
+    - staticcheck
+    - gosec .
+builds:
+  - env:
+      - CGO_ENABLED=0
+    targets:
+      - openbsd_amd64
+      - openbsd_arm64
+      - openbsd_386
+      - openbsd_arm
+      - freebsd_amd64
+      - freebsd_arm64
+      - freebsd_386
+      - darwin_amd64
+      - darwin_arm64
+      - windows_amd64
+      - netbsd_amd64
+      - netbsd_arm64
+      - netbsd_386
+      - dragonfly_amd64
+    goos:
+      - openbsd
+      - freebsd
+      - netbsd
+      - dragonfly
+      - linux
+      - windows
+      - darwin
+    ldflags:
+      - -s -w -X main.build={{.Version}}
+archives:
+  - replacements:
+      openbsd: OpenBSD
+      freebsd: FreeBSD
+      netbsd: NetBSD
+      dragonfly: DragonflyBSD
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
