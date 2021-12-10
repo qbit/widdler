@@ -85,6 +85,8 @@ var (
 	tlsCert    string
 	tlsKey     string
 	users      map[string]string
+	version    bool
+	build      string
 )
 
 var pledges = "stdio wpath rpath cpath tty inet dns unveil"
@@ -103,6 +105,7 @@ func init() {
 	flag.StringVar(&passPath, "htpass", fmt.Sprintf("%s/.htpasswd", dir), "Path to .htpasswd file..")
 	flag.StringVar(&auth, "auth", "basic", "Enable HTTP Basic Authentication.")
 	flag.BoolVar(&genHtpass, "gen", false, "Generate a .htpasswd file or add a new entry to an existing file.")
+	flag.BoolVar(&version, "v", false, "Show version and exit.")
 	flag.Parse()
 
 	// These are OpenBSD specific protections used to prevent unnecessary file access.
@@ -177,7 +180,10 @@ func prompt(prompt string, secure bool) (string, error) {
 }
 
 func main() {
-
+	if version {
+		fmt.Println(build)
+		os.Exit(0)
+	}
 	if genHtpass {
 		user, err := prompt("Username: ", false)
 		if err != nil {
