@@ -200,7 +200,7 @@ func main() {
 			log.Fatalln(err)
 		}
 
-		f, err := os.OpenFile(passPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		f, err := os.OpenFile(filepath.Clean(passPath), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -231,7 +231,7 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		p, err := os.Open(passPath)
+		p, err := os.Open(filepath.Clean(passPath))
 		if err != nil {
 			log.Fatal(err)
 		}
