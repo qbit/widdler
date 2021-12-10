@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -52,9 +53,25 @@ var (
 	templ  *template.Template
 )
 
+type userHandler struct {
+	mu   sync.Mutex
+	dav  *webdav.Handler
+	fs   http.Handler
+	name string
+}
+
 type userHandlers struct {
-	dav *webdav.Handler
-	fs  http.Handler
+	list []userHandler
+	mu   sync.RWMutex
+}
+
+func (u *userHandlers) find(name string) *userHandler {
+	for i := range u.list {
+		if u.list[i].name == name {
+			return &u.list[i]
+		}
+	}
+	return nil
 }
 
 var (
@@ -62,7 +79,7 @@ var (
 	davDir     string
 	fullListen string
 	genHtpass  bool
-	handlers   map[string]userHandlers
+	handlers   userHandlers
 	listen     string
 	passPath   string
 	tlsCert    string
@@ -74,7 +91,6 @@ var pledges = "stdio wpath rpath cpath tty inet dns unveil"
 
 func init() {
 	users = make(map[string]string)
-	handlers = make(map[string]userHandlers)
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		log.Fatalln(err)
@@ -153,13 +169,15 @@ func prompt(prompt string, secure bool) (string, error) {
 		}
 		input = string(b)
 	} else {
-		fmt.Scanln(&input)
+		_, err := fmt.Scanln(&input)
+		if err != nil {
+			return "", err
+		}
 	}
 	return input, nil
 }
 
 func main() {
-	var pledges = "stdio wpath rpath cpath tty inet dns unveil"
 
 	if genHtpass {
 		user, err := prompt("Username: ", false)
@@ -182,9 +200,12 @@ func main() {
 			log.Fatalln(err)
 		}
 
-		defer f.Close()
-
 		if _, err := f.WriteString(fmt.Sprintf("%s:%s\n", user, hash)); err != nil {
+			log.Fatalln(err)
+		}
+
+		err = f.Close()
+		if err != nil {
 			log.Fatalln(err)
 		}
 
@@ -209,7 +230,6 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer p.Close()
 
 		ht := csv.NewReader(p)
 		ht.Comma = ':'
@@ -217,6 +237,11 @@ func main() {
 		ht.TrimLeadingSpace = true
 
 		entries, err := ht.ReadAll()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = p.Close()
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -229,22 +254,24 @@ func main() {
 	if auth {
 		for u := range users {
 			uPath := path.Join(davDir, u)
-			handlers[u] = userHandlers{
+			handlers.list = append(handlers.list, userHandler{
+				name: u,
 				dav: &webdav.Handler{
 					LockSystem: webdav.NewMemLS(),
 					FileSystem: webdav.Dir(uPath),
 				},
 				fs: http.FileServer(http.Dir(uPath)),
-			}
+			})
 		}
 	} else {
-		handlers[""] = userHandlers{
+		handlers.list = append(handlers.list, userHandler{
+			name: "",
 			dav: &webdav.Handler{
 				LockSystem: webdav.NewMemLS(),
 				FileSystem: webdav.Dir(davDir),
 			},
 			fs: http.FileServer(http.Dir(davDir)),
-		}
+		})
 	}
 
 	mux := http.NewServeMux()
@@ -272,7 +299,19 @@ func main() {
 			}
 		}
 
-		handler := handlers[user]
+		handlers.mu.RLock()
+		handler := handlers.find(user)
+		handlers.mu.RUnlock()
+
+		if handler == nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		handler.mu.Lock()
+
+		defer handler.mu.Unlock()
+
 		userPath := path.Join(davDir, user)
 		fullPath := path.Join(davDir, user, r.URL.Path)
 
