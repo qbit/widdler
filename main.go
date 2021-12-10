@@ -20,8 +20,8 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/webdav"
+	"golang.org/x/term"
 	"suah.dev/protect"
 )
 
@@ -162,7 +162,7 @@ func prompt(prompt string, secure bool) (string, error) {
 	fmt.Print(prompt)
 
 	if secure {
-		b, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		b, err := term.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
 			return "", err
 		}
