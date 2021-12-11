@@ -179,6 +179,22 @@ func prompt(prompt string, secure bool) (string, error) {
 	return input, nil
 }
 
+func addHandler(u, uPath string) {
+	handlers.list = append(handlers.list, userHandler{
+		name: u,
+		dav: &webdav.Handler{
+			LockSystem: webdav.NewMemLS(),
+			FileSystem: webdav.Dir(uPath),
+			Logger: func(r *http.Request, err error) {
+				if err != nil {
+					log.Print(err)
+				}
+			},
+		},
+		fs: http.FileServer(http.Dir(uPath)),
+	})
+}
+
 func main() {
 	if version {
 		fmt.Println(build)
@@ -259,24 +275,10 @@ func main() {
 	if auth == "basic" || auth == "header" {
 		for u := range users {
 			uPath := path.Join(davDir, u)
-			handlers.list = append(handlers.list, userHandler{
-				name: u,
-				dav: &webdav.Handler{
-					LockSystem: webdav.NewMemLS(),
-					FileSystem: webdav.Dir(uPath),
-				},
-				fs: http.FileServer(http.Dir(uPath)),
-			})
+			addHandler(u, uPath)
 		}
 	} else {
-		handlers.list = append(handlers.list, userHandler{
-			name: "",
-			dav: &webdav.Handler{
-				LockSystem: webdav.NewMemLS(),
-				FileSystem: webdav.Dir(davDir),
-			},
-			fs: http.FileServer(http.Dir(davDir)),
-		})
+		addHandler("", davDir)
 	}
 
 	mux := http.NewServeMux()
