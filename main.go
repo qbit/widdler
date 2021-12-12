@@ -378,7 +378,7 @@ func main() {
 					// because net/http handles index.html magically for FileServer
 					_, fErr := os.Stat(filepath.Clean(path.Join(userPath, "index.html")))
 					if !os.IsNotExist(fErr) {
-						http.Redirect(w, r, "/index.html", 301)
+						http.Redirect(w, r, "/index.html", http.StatusMovedPermanently)
 						return
 					}
 				}
