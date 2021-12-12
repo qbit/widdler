@@ -372,6 +372,16 @@ func main() {
 			}
 
 			if len(entries) > 0 {
+				if r.URL.Path == "/" {
+					// If we have entries, and are serving up /, check for
+					// index.html and redirect to that if it exists. We redirect
+					// because net/http handles index.html magically for FileServer
+					_, fErr := os.Stat(filepath.Clean(path.Join(userPath, "index.html")))
+					if !os.IsNotExist(fErr) {
+						http.Redirect(w, r, "/index.html", 301)
+						return
+					}
+				}
 				handler.fs.ServeHTTP(w, r)
 			} else {
 				l := Landing{
