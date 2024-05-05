@@ -399,7 +399,8 @@ func main() {
 	}))
 
 	s := http.Server{
-		Handler: mux,
+		Handler:           mux,
+		ReadHeaderTimeout: 0,
 	}
 
 	lis, err := net.Listen("tcp", listen)

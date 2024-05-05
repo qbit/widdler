@@ -47,6 +47,7 @@
               go
               gopls
               goreleaser
+              gosec
               go-tools
               nilaway
             ];
