@@ -6,7 +6,6 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -152,7 +151,7 @@ func createEmpty(path string) error {
 	if os.IsNotExist(fErr) {
 		log.Printf("creating %q\n", path)
 		twData, _ := tiddly.ReadFile(twFile)
-		wErr := ioutil.WriteFile(path, twData, 0600)
+		wErr := os.WriteFile(path, twData, 0600)
 		if wErr != nil {
 			return wErr
 		}

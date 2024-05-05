@@ -32,17 +32,6 @@ builds:
       - darwin
     ldflags:
       - -s -w -X main.build={{.Version}}
-archives:
-  - replacements:
-      openbsd: OpenBSD
-      freebsd: FreeBSD
-      netbsd: NetBSD
-      dragonfly: DragonflyBSD
-      darwin: Darwin
-      linux: Linux
-      windows: Windows
-      386: i386
-      amd64: x86_64
 signs:
   - artifacts: checksum
 source:
