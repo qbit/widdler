@@ -384,7 +384,7 @@ func main() {
 				handler.fs.ServeHTTP(w, r)
 			} else {
 				l := Landing{
-					URL: fmt.Sprintf("%s/wiki.html", fullListen),
+					URL: "/wiki.html",
 				}
 				if user != "" {
 					l.User = user
