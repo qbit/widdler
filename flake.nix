@@ -23,10 +23,10 @@
         {
           widdler = pkgs.buildGo122Module {
             pname = "widdler";
-            version = "v1.2.4";
+            version = "v1.2.5";
             src = ./.;
 
-            vendorHash = "sha256-gZmJSA91lo1UScNt7Hy5buZq5utsvomR21SubFX889k=";
+            vendorHash = "sha256-R2NkKxDPfZXVIaVbRYutw5DXYhk4NVniQOeVaJcuZNU=";
           };
         });
 
