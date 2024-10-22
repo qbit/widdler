@@ -45,9 +45,9 @@ const landingPage = `
 `
 
 var (
-	twFile = "empty-5.3.3.html"
+	twFile = "empty.html"
 
-	//go:embed empty-5.3.3.html
+	//go:embed empty.html
 	tiddly embed.FS
 	templ  *template.Template
 )
