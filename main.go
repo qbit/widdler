@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"text/template"
@@ -85,6 +86,7 @@ var (
 	tlsKey     string
 	users      map[string]string
 	version    bool
+	backup     int
 	build      string
 )
 
@@ -105,6 +107,7 @@ func init() {
 	flag.StringVar(&auth, "auth", "basic", "Enable HTTP Basic Authentication.")
 	flag.BoolVar(&genHtpass, "gen", false, "Generate a .htpasswd file or add a new entry to an existing file.")
 	flag.BoolVar(&version, "v", false, "Show version and exit.")
+	flag.IntVar(&backup, "backup", 0, "Keep last backup number when flag set enable")
 	flag.Parse()
 
 	// These are OpenBSD specific protections used to prevent unnecessary file access.
@@ -143,6 +146,12 @@ func logger(f http.HandlerFunc) http.HandlerFunc {
 			r.ContentLength,
 		)
 		f(w, r)
+
+		if backup > 0 && r.Method == "PUT" {
+			path := davDir + "/backup/"
+			name := r.URL.Path
+			backupFiles(path, name)
+		}
 	}
 }
 
@@ -425,4 +434,59 @@ func main() {
 		log.Printf("Listening for HTTP on 'http://%s'", listen)
 		log.Fatalln(s.Serve(lis))
 	}
+}
+
+type ByModTime []os.FileInfo
+
+func (fis ByModTime) Len() int {
+	return len(fis)
+}
+
+func (fis ByModTime) Swap(i, j int) {
+	fis[i], fis[j] = fis[j], fis[i]
+}
+
+func (fis ByModTime) Less(i, j int) bool {
+	return fis[i].ModTime().Before(fis[j].ModTime())
+}
+
+func sortFile(path string) (fis ByModTime) {
+	f, err := os.Open(path)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fis, err = f.Readdir(-1)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer f.Close()
+
+	sort.Sort(ByModTime(fis))
+	return
+}
+
+func backupFiles(path, name string) error {
+	_, fErr := os.Stat(path)
+	if os.IsNotExist(fErr) {
+		log.Printf("creating %q\n", path)
+		wErr := os.Mkdir(path, 755)
+		if wErr != nil {
+			return wErr
+		}
+	}
+
+	timestamp := time.Now().Format("20060102.150405")
+	filename := path + name + "." + timestamp
+	files := sortFile(path)
+	if len(files) > backup {
+		for k, _ := range files[backup:] {
+			err := os.Remove(path + files[k].Name())
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+	input, err := ioutil.ReadFile(path + ".." + name)
+	ioutil.WriteFile(filename, input, 0644)
+	return nil
 }
